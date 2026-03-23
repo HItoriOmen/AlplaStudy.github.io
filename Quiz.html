@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizFast - Ôn Tập Trắc Nghiệm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="location.reload()">
+                <div class="bg-indigo-600 p-2 rounded-lg shadow-lg">
+                    <i class="fas fa-file-alt text-white"></i>
+                </div>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+                    QuizFast
+                </h1>
+            </div>
+            <div id="header-actions" class="flex items-center gap-2"></div>
+        </div>
+    </header>
+
+    <main id="app-container" class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Nội dung sẽ được render bởi JS -->
+    </main>
+
+    <script>
+        // State Management
+        let state = {
+            view: 'input', // input, edit, practice, result
+            rawText: '',
+            questions: [],
+            currentQuizIndex: 0,
+            userAnswers: {},
+            score: 0
+        };
+
+        // DOM Elements
+        const container = document.getElementById('app-container');
+        const headerActions = document.getElementById('header-actions');
+
+        // Logic Xử lý văn bản
+        function parseText() {
+            const text = document.getElementById('raw-text-input').value.trim();
+            if (!text) return;
+
+            state.rawText = text;
+            // Regex nhận diện "Câu 1", "Cau 1", "caau 1", "1." bất kể hoa thường, có dấu hay không
+            const questionSplitRegex = /\n(?=(?:câu|cau|caau)\s*\d+|\d+)[.:)\-\s]+/gi;
+            const formattedText = "\n" + text;
+            const blocks = formattedText.split(questionSplitRegex).filter(b => b.trim().length > 5);
+
+            state.questions = blocks.map((block, index) => {
+                const lines = block.split('\n').filter(l => l.trim() !== '');
+                
+                // Xóa tiêu đề "Câu 1:" khỏi nội dung câu hỏi
+                const cleanHeaderRegex = /^(?:câu|cau|caau)\s*\d+[.:)\-\s]*|^\d+[.:)\-\s]+/i;
+                const questionText = lines[0].replace(cleanHeaderRegex, '').trim();
+
+                const options = [];
+                const optionRegex = /^([A-D])[\.\s:)\-]\s*(.*)$/i;
+
+                lines.slice(1).forEach(line => {
+                    const match = line.trim().match(optionRegex);
+                    if (match) {
+                        options.push({ label: match[1].toUpperCase(), text: match[2].trim() });
+                    }
+                });
+
+                // Nếu không có A B C D, lấy 4 dòng đầu làm phương án
+                if (options.length === 0) {
+                    lines.slice(1, 5).forEach((line, i) => {
+                        options.push({ label: String.fromCharCode(65 + i), text: line.trim() });
+                    });
+                }
+
+                return {
+                    id: Date.now() + index,
+                    question: questionText,
+                    options: options,
+                    correctAnswer: null
+                };
+            });
+
+            state.view = 'edit';
+            render();
+        }
+
+        function setCorrectAnswer(qId, label) {
+            state.questions = state.questions.map(q => 
+                q.id === qId ? { ...q, correctAnswer: label } : q
+            );
+            render();
+        }
+
+        function startPractice() {
+            if (state.questions.some(q => !q.correctAnswer)) {
+                alert("Bạn phải chọn đáp án đúng cho tất cả các câu trước!");
+                return;
+            }
+            state.view = 'practice';
+            state.currentQuizIndex = 0;
+            state.userAnswers = {};
+            state.score = 0;
+            render();
+        }
+
+        function handleAnswer(label) {
+            const q = state.questions[state.currentQuizIndex];
+            if (state.userAnswers[q.id]) return;
+
+            state.userAnswers[q.id] = label;
+            if (label === q.correctAnswer) state.score++;
+            render();
+        }
+
+        function nextQuestion() {
+            if (state.currentQuizIndex < state.questions.length - 1) {
+                state.currentQuizIndex++;
+                render();
+            } else {
+                state.view = 'result';
+                render();
+            }
+        }
+
+        // Render Functions
+        function render() {
+            headerActions.innerHTML = '';
+            
+            if (state.view === 'input') {
+                renderInput();
+            } else if (state.view === 'edit') {
+                renderEdit();
+            } else if (state.view === 'practice') {
+                renderPractice();
+            } else if (state.view === 'result') {
+                renderResult();
+            }
+        }
+
+        function renderInput() {
+            container.innerHTML = `
+                <div class="fade-in">
+                    <div class="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+                        <div class="p-8 border-b border-slate-50 bg-slate-50/50">
+                            <h2 class="text-xl font-bold text-slate-800">Dán đề bài của bạn</h2>
+                            <p class="text-slate-500 text-sm mt-1">Hỗ trợ mọi định dạng: Cau 1, câu 1, 1., 1)...</p>
+                        </div>
+                        <div class="p-8">
+                            <textarea id="raw-text-input" placeholder="Cau 1: 1+1 bằng mấy?&#10;A. 2&#10;B. 3&#10;&#10;Cau 2: Thủ đô VN là gì?&#10;A. Hà Nội&#10;B. HCM" class="w-full h-80 p-5 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none font-mono text-sm leading-relaxed">${state.rawText}</textarea>
+                            <div class="mt-8 flex justify-end">
+                                <button onclick="parseText()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-bold shadow-xl transition-all active:scale-95">
+                                    Xử lý dữ liệu <i class="fas fa-magic ml-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEdit() {
+            headerActions.innerHTML = `
+                <button onclick="startPractice()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-emerald-100 transition-all">
+                    Bắt đầu ôn tập <i class="fas fa-play ml-1"></i>
+                </button>
+            `;
+
+            container.innerHTML = `
+                <div class="space-y-6 fade-in">
+                    <div class="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex justify-between items-center">
+                        <p class="text-indigo-900 font-bold">Bước 2: Click chọn đáp án đúng cho mỗi câu</p>
+                        <span class="bg-white px-4 py-1 rounded-lg text-indigo-600 font-black">${state.questions.length} CÂU</span>
+                    </div>
+                    ${state.questions.map((q, idx) => `
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                            <div class="flex gap-4 mb-5">
+                                <span class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-500">${idx + 1}</span>
+                                <h3 class="text-lg font-bold text-slate-800 pt-1 leading-snug">${q.question}</h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:ml-14">
+                                ${q.options.map(opt => `
+                                    <button onclick="setCorrectAnswer(${q.id}, '${opt.label}')" class="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${q.correctAnswer === opt.label ? 'border-emerald-500 bg-emerald-50' : 'border-slate-50 hover:bg-slate-50'}">
+                                        <span class="w-8 h-8 rounded-lg flex items-center justify-center font-bold ${q.correctAnswer === opt.label ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}">${opt.label}</span>
+                                        <span class="font-medium">${opt.text}</span>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderPractice() {
+            const q = state.questions[state.currentQuizIndex];
+            const hasAnswered = !!state.userAnswers[q.id];
+            const progress = ((state.currentQuizIndex + 1) / state.questions.length) * 100;
+
+            container.innerHTML = `
+                <div class="max-w-2xl mx-auto fade-in">
+                    <div class="mb-8">
+                        <div class="flex justify-between text-xs font-black text-indigo-500 uppercase mb-2">
+                            <span>Câu ${state.currentQuizIndex + 1}/${state.questions.length}</span>
+                            <span>Đúng: ${state.score}</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-3 rounded-full overflow-hidden shadow-inner">
+                            <div class="bg-indigo-600 h-full transition-all duration-500" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-8 sm:p-12">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-10 leading-tight">${q.question}</h2>
+                        <div class="space-y-4">
+                            ${q.options.map(opt => {
+                                const isSelected = state.userAnswers[q.id] === opt.label;
+                                const isCorrect = q.correctAnswer === opt.label;
+                                let style = "border-slate-100 bg-slate-50 hover:border-indigo-200";
+                                let icon = "";
+                                if (hasAnswered) {
+                                    if (isCorrect) {
+                                        style = "border-emerald-500 bg-emerald-50 text-emerald-700 ring-4 ring-emerald-500/10";
+                                        icon = '<i class="fas fa-check-circle text-emerald-500 ml-auto"></i>';
+                                    } else if (isSelected) {
+                                        style = "border-red-500 bg-red-50 text-red-700 ring-4 ring-red-500/10";
+                                        icon = '<i class="fas fa-times-circle text-red-500 ml-auto"></i>';
+                                    } else {
+                                        style = "opacity-40 border-slate-50";
+                                    }
+                                }
+                                return `
+                                    <button ${hasAnswered ? 'disabled' : ''} onclick="handleAnswer('${opt.label}')" class="w-full flex items-center gap-4 p-5 rounded-2xl border-2 font-bold transition-all text-left ${style}">
+                                        <span class="w-10 h-10 rounded-xl flex items-center justify-center border ${hasAnswered && isCorrect ? 'bg-emerald-500 text-white' : hasAnswered && isSelected ? 'bg-red-500 text-white' : 'bg-white text-slate-400'}">${opt.label}</span>
+                                        <span>${opt.text}</span>
+                                        ${icon}
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                        ${hasAnswered ? `
+                            <div class="mt-10 flex justify-end">
+                                <button onclick="nextQuestion()" class="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold shadow-xl hover:bg-indigo-600 transition-all">
+                                    ${state.currentQuizIndex === state.questions.length - 1 ? 'Kết quả' : 'Tiếp theo'} <i class="fas fa-chevron-right ml-2"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderResult() {
+            const percent = Math.round((state.score / state.questions.length) * 100);
+            container.innerHTML = `
+                <div class="max-w-md mx-auto text-center fade-in pt-10">
+                    <div class="bg-white rounded-[3rem] shadow-2xl p-12 border border-slate-100">
+                        <div class="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-8">
+                            <i class="fas fa-award text-5xl"></i>
+                        </div>
+                        <h2 class="text-3xl font-black text-slate-800">Hoàn thành!</h2>
+                        <div class="text-7xl font-black text-indigo-600 my-8">
+                            ${state.score}<span class="text-2xl text-slate-300 ml-1">/${state.questions.length}</span>
+                        </div>
+                        <p class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-10">${percent}% CHÍNH XÁC</p>
+                        <div class="space-y-4">
+                            <button onclick="startPractice()" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold shadow-xl hover:bg-indigo-700 transition-all">
+                                Làm lại ngay <i class="fas fa-redo ml-2"></i>
+                            </button>
+                            <button onclick="state.view = 'edit'; render();" class="w-full py-5 text-slate-400 font-bold hover:text-indigo-600 transition-all">
+                                Sửa câu hỏi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Khởi tạo app
+        render();
+    </script>
+</body>
+</html>
