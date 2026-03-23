@@ -433,6 +433,7 @@
                     text += `Câu ${idx + 1}: ${q.question}\n`;
                     q.options.forEach(o => text += `${o.label}. ${o.text}\n`);
                     text += `=> Đáp án đúng: ${q.correctAnswer || "Chưa chọn"}\n\n`;
+                    text += `---------------------------\n\n`;
                 });
                 container.innerHTML = `
                 <div class="max-w-xl mx-auto fade-in">
@@ -492,7 +493,7 @@
                 const pc = Math.round((state.score/state.questions.length)*100);
                 container.innerHTML = `<div class="max-w-xs mx-auto text-center pt-8 fade-in"><div class="bg-white rounded-3xl shadow-xl p-8 border">
                     <div class="text-5xl text-indigo-600 mb-4"><i class="fas fa-award"></i></div>
-                    <h2 class="text-2xl font-black mb-2 text-slate-800">Kết quả</h2>
+                    <h2 class="text-2xl font-black mb-2 text-slate-800">Kết quả ôn tập</h2>
                     <div class="text-5xl font-black text-indigo-600 my-6">${state.score}<span class="text-xl text-slate-300">/${state.questions.length}</span></div>
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">${pc}% CHÍNH XÁC</p>
                     <button onclick="QuizApp.startPractice()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-sm shadow-lg">Làm lại ngay</button>
@@ -507,14 +508,17 @@
                     const text = document.getElementById('raw-text-input').value.trim();
                     if (!text) return;
                     state.rawText = text;
-                    const blocks = ("\n" + text).split(/\n(?=(?:câu|cau|caau)\s*\d+|\d+)[.:)\-\s]+/gi).filter(b => b.trim().length > 5);
+                    const questionSplitRegex = /\n\s*(?=(?:câu|cau|caau)\s*\d+|^\d+[.:)\-\s]+)/gi;
+                    const blocks = ("\n" + text).split(questionSplitRegex).filter(b => b.trim().length > 5);
                     state.questions = blocks.map((b, i) => {
                         const lines = b.split('\n').filter(l => l.trim() !== '');
-                        const qTxt = lines[0].replace(/^(?:câu|cau|caau)\s*\d+[.:)\-\s]*|^\d+[.:)\-\s]+/i, '').trim();
+                        const cleanHeaderRegex = /^(?:câu|cau|caau)\s*\d+[.:)\-\s]*|^\d+[.:)\-\s]+/i;
+                        const qTxt = lines[0].replace(cleanHeaderRegex, '').trim();
                         const opts = [];
                         let foundCorrect = null;
+                        const optionRegex = /^(\*?)([A-Z])[\.\s:)\-]\s*(.*)$/i;
                         lines.slice(1).forEach(l => {
-                            const match = l.trim().match(/^(\*?)([A-D])[\.\s:)\-]\s*(.*)$/i);
+                            const match = l.trim().match(optionRegex);
                             if (match) {
                                 const isCorrect = match[1] === '*';
                                 const label = match[2].toUpperCase();
@@ -523,7 +527,7 @@
                             }
                         });
                         if (opts.length === 0) lines.slice(1, 5).forEach((l, idx) => opts.push({ label: String.fromCharCode(65 + idx), text: l.trim() }));
-                        return { id: Date.now() + i, question: qTxt, options: opts, correctAnswer: foundCorrect };
+                        return { id: Date.now() + i, question: qTxt || "Nội dung câu hỏi...", options: opts, correctAnswer: foundCorrect };
                     });
                     state.view = 'edit'; render();
                 },
@@ -554,6 +558,7 @@
                 next: () => { if(state.currentQuizIndex < state.questions.length - 1) { state.currentQuizIndex++; render(); } else { state.view = 'result'; render(); } }
             };
         })();
+
 
         /* --- FLASHCARD PRO LOGIC (TỐI ƯU MOBILE) --- */
         const FlashcardApp = (function() {
