@@ -338,9 +338,11 @@
                 if (data) state.savedQuizzes = JSON.parse(data);
             };
 
+            // Hàm tính toán lại độ cao của textarea
             const autoResize = (el) => {
+                if (!el) return;
                 el.style.height = 'auto';
-                el.style.height = el.scrollHeight + 'px';
+                el.style.height = (el.scrollHeight) + 'px';
             };
 
             const render = () => {
@@ -351,7 +353,11 @@
                 else if (state.view === 'exam') renderExam();
                 else if (state.view === 'result') renderResult();
                 else if (state.view === 'export') renderExport();
-                document.querySelectorAll('textarea.input-ghost').forEach(ta => autoResize(ta));
+                
+                // Đảm bảo autoResize chạy sau khi DOM đã được vẽ
+                setTimeout(() => {
+                    document.querySelectorAll('textarea.input-ghost').forEach(ta => autoResize(ta));
+                }, 0);
             };
 
             const renderInput = () => {
@@ -399,16 +405,16 @@
                     <div class="bg-indigo-50 p-4 rounded-xl border flex justify-between items-center shadow-sm">
                         <div class="flex items-center gap-3">
                             <button onclick="QuizApp.goToInput()" class="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-indigo-600 shadow-sm"><i class="fas fa-arrow-left text-xs"></i></button>
-                            <p class="font-bold text-sm text-indigo-900">Đang chỉnh sửa đề</p>
+                            <p class="font-bold text-sm text-indigo-900">Chỉnh sửa nội dung đề</p>
                         </div>
                         <span class="bg-white px-3 py-0.5 rounded-md text-indigo-600 font-black text-xs">${state.questions.length} CÂU</span>
                     </div>
                     ${state.questions.map((q, idx) => `
                         <div class="bg-white rounded-2xl border p-5 relative shadow-sm">
                             <div class="flex items-start gap-3 mb-4">
-                                <span class="flex-shrink-0 w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-500 text-xs">${idx + 1}</span>
+                                <span class="flex-shrink-0 w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-500 text-xs mt-1">${idx + 1}</span>
                                 <textarea oninput="QuizApp.updateQText(${q.id}, this.value); QuizApp.autoResize(this)" class="input-ghost text-sm font-bold text-slate-800 pt-2" rows="1">${q.question}</textarea>
-                                <button onclick="QuizApp.removeQ(${q.id})" class="text-red-200 hover:text-red-500 p-2"><i class="fas fa-times"></i></button>
+                                <button onclick="QuizApp.removeQ(${q.id})" class="text-red-200 hover:text-red-500 p-2 mt-1"><i class="fas fa-times"></i></button>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:ml-12">
                                 ${q.options.map(opt => `
@@ -485,7 +491,7 @@
                 container.innerHTML = `
                 <div class="space-y-6 pb-20">
                     <div class="bg-white p-5 rounded-2xl shadow-lg border border-slate-100 sticky top-14 md:top-16 z-40 flex justify-between items-center">
-                        <div><h2 class="font-bold text-slate-800 text-sm">Ôn thi tổng hợp</h2><p class="text-[9px] text-slate-400 uppercase tracking-tighter">Hoàn thành tất cả để nộp bài</p></div>
+                        <div><h2 class="font-bold text-slate-800 text-sm">Ôn thi tổng hợp</h2><p class="text-[9px] text-slate-400 uppercase tracking-tighter">Hoàn thành để nộp bài</p></div>
                         ${!state.examSubmitted ? `<button onclick="QuizApp.submitExam()" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold text-xs shadow-lg hover:bg-indigo-700">Nộp bài <i class="fas fa-paper-plane ml-1"></i></button>` : 
                         `<div class="flex items-center gap-4"><div class="text-right"><p class="text-[9px] font-bold text-slate-400 uppercase">ĐIỂM SỐ</p><p class="text-xl font-black text-indigo-600">${state.score}/${state.questions.length}</p></div>
                         <button onclick="QuizApp.goEdit()" class="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px]">Thoát</button></div>`}
@@ -494,7 +500,7 @@
                         ${state.questions.map((q, idx) => {
                             const selected = state.userAnswers[q.id];
                             return `<div class="bg-white rounded-2xl border p-5 shadow-sm border-slate-100">
-                                <div class="flex items-start gap-4 mb-5"><span class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-500 text-xs mt-0.5">${idx+1}</span><h3 class="text-sm font-bold whitespace-pre-line pt-2 text-slate-800 leading-snug">${q.question}</h3></div>
+                                <div class="flex items-start gap-4 mb-5"><span class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-500 text-xs mt-1">${idx+1}</span><h3 class="text-sm font-bold whitespace-pre-line pt-2 text-slate-800 leading-snug">${q.question}</h3></div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:ml-12">
                                     ${q.options.map(opt => {
                                         const isSel = selected === opt.label;
@@ -539,7 +545,7 @@
                     text += `\n---------------------------\n\n`;
                 });
                 container.innerHTML = `<div class="max-w-xl mx-auto"><div class="bg-white rounded-3xl shadow-xl border overflow-hidden">
-                    <div class="p-5 bg-indigo-600 text-white flex justify-between items-center"><h2 class="font-bold text-xs flex items-center gap-2"><i class="fas fa-copy"></i> Văn bản (Dấu * là đáp án đúng)</h2><button onclick="QuizApp.goEdit()"><i class="fas fa-times"></i></button></div>
+                    <div class="p-5 bg-indigo-600 text-white flex justify-between items-center"><h2 class="font-bold text-xs flex items-center gap-2"><i class="fas fa-copy"></i> Bản văn bản</h2><button onclick="QuizApp.goEdit()"><i class="fas fa-times"></i></button></div>
                     <div class="p-5"><textarea id="exp-area" readonly class="w-full h-80 p-4 bg-slate-50 border rounded-xl outline-none font-mono text-[10px] leading-relaxed custom-scrollbar">${text}</textarea>
                     <div class="mt-5 flex gap-2"><button onclick="QuizApp.copyExport()" class="flex-grow bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all">Copy toàn bộ</button>
                     <button onclick="QuizApp.goEdit()" class="px-6 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200">Đóng</button></div></div></div></div>`;
@@ -564,7 +570,7 @@
                             if (m) { const lab = m[2].toUpperCase(); opts.push({ label: lab, text: m[3].trim() }); if(m[1] === '*') foundCor = lab; }
                         });
                         if (opts.length === 0) lines.slice(1, 5).forEach((l, idx) => opts.push({ label: String.fromCharCode(65 + idx), text: l.trim() }));
-                        return { id: Date.now() + i, question: qTxt || "Nội dung câu hỏi...", options: opts, correctAnswer: foundCor };
+                        return { id: Date.now() + i, question: qTxt || "...", options: opts, correctAnswer: foundCor };
                     });
                     state.view = 'edit'; render();
                 },
@@ -577,8 +583,8 @@
                     state.currentQuizId = id; saveStorage(); alert("Đã lưu!"); render();
                 },
                 loadQuiz: (id) => { const q = state.savedQuizzes.find(x => x.id === id); if(q) { Object.assign(state, {currentQuizId: q.id, rawText: q.rawText, questions: q.questions, view: 'edit'}); render(); } },
-                deleteQuiz: (id) => { if(confirm("Xóa bộ đề này?")) { state.savedQuizzes = state.savedQuizzes.filter(q => q.id !== id); if(state.currentQuizId === id) state.currentQuizId = null; saveStorage(); render(); } },
-                clearAll: () => { if(confirm("CẢNH BÁO: Xóa sạch các bộ đề?")) { state.savedQuizzes = []; saveStorage(); render(); } },
+                deleteQuiz: (id) => { if(confirm("Xóa đề này?")) { state.savedQuizzes = state.savedQuizzes.filter(q => q.id !== id); if(state.currentQuizId === id) state.currentQuizId = null; saveStorage(); render(); } },
+                clearAll: () => { if(confirm("CẢNH BÁO: Xóa sạch bộ đề?")) { state.savedQuizzes = []; saveStorage(); render(); } },
                 goToInput: () => { Object.assign(state, {view: 'input', currentQuizId: null, questions: []}); render(); },
                 goEdit: () => { state.view = 'edit'; render(); },
                 goExport: () => { state.view = 'export'; render(); },
